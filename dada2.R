@@ -15,7 +15,7 @@ list.files(path)
 
 
 # Forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
-# Seperate the forward and reverse file into two variable fnFs and fnRs
+# Separate the forward and reverse file into two variable fnFs and fnRs
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
 fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
 # need sort, if not the vectors may not match each other
@@ -70,15 +70,29 @@ names(filtRs) <- sample.names
 # use standard filtering parameters: maxN=0 (DADA2 requires no Ns), truncQ=2, rm.phix=TRUE and maxEE=2
 # The maxEE parameter sets the maximum number of “expected errors” allowed in a read
 
-# Place filtered files in filtered/ subdirectory
+
+
+
+
+############################
+
+#### Parameters changed: ####
+#### (truncQ = 12, minQ=4, maxEE = c(1, 2)) #######
+
+############################
+
 out <- filterAndTrim(fnFs,   # paths to forward fastq files
                      filtFs, # paths to the output forward filtered files
                      fnRs,   # paths to reverse fastq files
                      filtRs, # paths to output reverse filtered files
                      truncLen=c(240, 160),# Truncate the bases after 240 in forward sequences and after 160 in reverse sequences; reads shorter than this are discarded
                      maxN=0, # after truncation, sequences with more than '0' will be discarded
+                     #minQ=4, # added parameter per assignment instructions
+                              # new: minimum quality must be at least 4 somewhere in read
                      maxEE=2, # after truncation, reads with higher than maxEE "expected errors" will be discarded
+                                    # new: expected errors cutoff tighter (was 2 overall, now 1 for F, 2 for R)
                      truncQ=2,# after truncation, reads contain a quality score < '2' will be discarded
+                                # truncate earlier if quality drops below 12 (was 2 originally)
                      rm.phix=TRUE, # discard reads that match against the phiX genome
                      compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
 head(out)
@@ -94,7 +108,7 @@ head(out)
 # (the error rates if only the most abundant sequence is correct and all the rest are errors).
 
 #learn the error rate for forward reads(16*41 matrix)
-# 41 is cresponding to the Quality value
+# 41 is corresponding to the Quality value
 errF <- learnErrors(filtFs, multithread=TRUE)
 
 #learn the error rate for reverse reads
@@ -178,11 +192,35 @@ track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, 
 # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
 colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
 rownames(track) <- sample.names
-head(track)
+
 # how many reads were kept, and removed
 # merged requires number of nucleotides in F and R to have overlap
   # number constantly going down
 # too close of a sequence needs to be removed
+
+
+
+############################
+
+#### Added object to track original read file #######
+
+############################
+
+# track_original <- track
+
+# head(track_original)
+
+
+
+############################
+
+#### Added object to track updated read file #######
+
+############################
+
+ track_new2 <- track
+
+ head(track_new2)
 
 
 
@@ -197,16 +235,40 @@ head(track)
 # use paper linked in man page
 # use machine learning naive Bayesian classifier
 
-taxa <- assignTaxonomy(seqtab.nochim, "/Users/veronicagosnell/Desktop/Computational_Genomics/dada2/data_set/silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
+
+
+
+
+############################
+
+#### Parameter changed: #######
+
+#### added minBoot = 50 #####
+
+ #### added separate block to compare ####
+ #### for easy commenting in and out of the files I want ####
+
+############################
+
+
+#taxa <- assignTaxonomy(seqtab.nochim, "/Users/veronicagosnell/Desktop/Computational_Genomics/dada2/data_set/silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
 # input is the matrix, 20 232
 # bacterial genome for reference
 # multithread uses parallelism
 # minBoot -> test -> what is bootstrap meaning?
 
 # Inspect the taxonomic assignments:
-taxa.print <- taxa # Removing sequence rownames for display only
-rownames(taxa.print) <- NULL
-head(taxa.print)
+#taxa.print <- taxa # Removing sequence rownames for display only
+#rownames(taxa.print) <- NULL
+#head(taxa.print)
+
+
+taxa_boot50 <- assignTaxonomy(seqtab.nochim, "/Users/veronicagosnell/Desktop/Computational_Genomics/dada2/data_set/silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE,
+                       minBoot = 50) # NEW: bootstrap threshold set to 50
+
+taxa_boot50.print <- taxa # Removing sequence rownames for display only
+rownames(taxa_boot50.print) <- NULL
+head(taxa_boot50.print)
 
 
 # Evaluate accuracy
@@ -326,5 +388,5 @@ legend('center', legend = legendMatrix[,1],
 
 
 
-#dev.off()
+dev.off()
 
